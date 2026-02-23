@@ -17,7 +17,7 @@
 
 import pathlib
 import numpy as np
-from tensorflow.python.platform import googletest
+import absl.testing.absltest as absltest
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer.utils import test_utils
 from ai_edge_quantizer.utils import tfl_flatbuffer_utils
@@ -27,7 +27,7 @@ TEST_DATA_PREFIX_PATH = test_utils.get_path_to_datafile("../tests/models")
 
 
 # TODO: b/328830092 - Add test cases for model require buffer offset.
-class FlatbufferUtilsTest(googletest.TestCase):
+class FlatbufferUtilsTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -217,4 +217,4 @@ class FlatbufferUtilsTest(googletest.TestCase):
 
 
 if __name__ == "__main__":
-  googletest.main()
+  absltest.main()

@@ -15,7 +15,7 @@
 
 import pathlib
 import numpy as np
-from tensorflow.python.platform import googletest
+import absl.testing.absltest as absltest
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer.transformations import duplicate_buffer
 from ai_edge_quantizer.transformations import transformation_utils
@@ -25,7 +25,7 @@ from ai_edge_quantizer.utils import tfl_flatbuffer_utils
 TEST_DATA_PREFIX_PATH = test_utils.get_path_to_datafile('..')
 
 
-class DuplicateBufferTest(googletest.TestCase):
+class DuplicateBufferTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -104,4 +104,4 @@ class DuplicateBufferTest(googletest.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

@@ -17,7 +17,7 @@
 
 import pathlib
 import numpy as np
-from tensorflow.python.platform import googletest
+import absl.testing.absltest as absltest
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer.transformations import dequant_insert
 from ai_edge_quantizer.transformations import transformation_utils
@@ -28,7 +28,7 @@ from ai_edge_litert import schema_py_generated  # pylint: disable=g-direct-tenso
 TEST_DATA_PREFIX_PATH = test_utils.get_path_to_datafile("..")
 
 
-class DequantInsertTest(googletest.TestCase):
+class DequantInsertTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -302,4 +302,4 @@ class DequantInsertTest(googletest.TestCase):
 
 
 if __name__ == "__main__":
-  googletest.main()
+  absltest.main()

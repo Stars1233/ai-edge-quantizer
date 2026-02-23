@@ -15,14 +15,14 @@
 
 import pathlib
 import numpy as np
-from tensorflow.python.platform import googletest
+import absl.testing.absltest as absltest
 from ai_edge_quantizer.utils import test_utils
 from ai_edge_quantizer.utils import tfl_interpreter_utils
 
 TEST_DATA_PREFIX_PATH = test_utils.get_path_to_datafile("../tests/models")
 
 
-class TflUtilsSingleSignatureModelTest(googletest.TestCase):
+class TflUtilsSingleSignatureModelTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -142,7 +142,7 @@ class TflUtilsSingleSignatureModelTest(googletest.TestCase):
     )
 
 
-class TflUtilsQuantizedModelTest(googletest.TestCase):
+class TflUtilsQuantizedModelTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -176,7 +176,7 @@ class TflUtilsQuantizedModelTest(googletest.TestCase):
     )
 
 
-class TflUtilsMultiSignatureModelTest(googletest.TestCase):
+class TflUtilsMultiSignatureModelTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -336,7 +336,7 @@ class TflUtilsMultiSignatureModelTest(googletest.TestCase):
     self.assertEqual(multiply_output_content, [20.0])
 
 
-class TflUtilsIntegerInputModelTest(googletest.TestCase):
+class TflUtilsIntegerInputModelTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -399,4 +399,4 @@ class TflUtilsIntegerInputModelTest(googletest.TestCase):
 
 
 if __name__ == "__main__":
-  googletest.main()
+  absltest.main()

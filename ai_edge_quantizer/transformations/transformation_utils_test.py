@@ -17,8 +17,8 @@
 
 import pathlib
 import numpy as np
-from tensorflow.python.platform import googletest
 from absl.testing import parameterized
+import absl.testing.absltest as absltest
 from ai_edge_quantizer.transformations import transformation_utils
 from ai_edge_quantizer.utils import test_utils
 from ai_edge_quantizer.utils import tfl_flatbuffer_utils
@@ -253,4 +253,4 @@ class TransformationUtilsTest(parameterized.TestCase):
 
 
 if __name__ == "__main__":
-  googletest.main()
+  absltest.main()

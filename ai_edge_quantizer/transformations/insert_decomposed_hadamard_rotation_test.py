@@ -17,7 +17,7 @@
 
 import pathlib
 import numpy as np
-from tensorflow.python.platform import googletest
+import absl.testing.absltest as absltest
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer.transformations import insert_decomposed_hadamard_rotation
 from ai_edge_quantizer.transformations import transformation_utils
@@ -28,7 +28,7 @@ from ai_edge_litert import schema_py_generated  # pylint: disable=g-direct-tenso
 _TEST_DATA_PREFIX_PATH = test_utils.get_path_to_datafile('..')
 
 
-class InsertDecomposedHadamardRotationFullyConnectedTest(googletest.TestCase):
+class InsertDecomposedHadamardRotationFullyConnectedTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -175,7 +175,7 @@ class InsertDecomposedHadamardRotationFullyConnectedTest(googletest.TestCase):
     self.assertEqual(orig_fc_op.inputs[0], 9)
 
 
-class InsertDecomposedHadamardRotationEmbeddingLookupTest(googletest.TestCase):
+class InsertDecomposedHadamardRotationEmbeddingLookupTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -241,4 +241,4 @@ class InsertDecomposedHadamardRotationEmbeddingLookupTest(googletest.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()
