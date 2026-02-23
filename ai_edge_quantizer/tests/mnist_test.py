@@ -23,7 +23,7 @@ from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import quantizer
 from ai_edge_quantizer.utils import test_utils
 from ai_edge_quantizer.utils import tfl_interpreter_utils
-from tensorflow.lite.tools import flatbuffer_utils  # pylint: disable=g-direct-tensorflow-import
+from ai_edge_litert.tools import flatbuffer_utils  # pylint: disable=g-direct-tensorflow-import
 
 _ComputePrecision = qtyping.ComputePrecision
 _OpName = qtyping.TFLOperationName
