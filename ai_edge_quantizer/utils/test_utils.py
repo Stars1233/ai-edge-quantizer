@@ -84,8 +84,7 @@ def get_path_to_datafile(path):
     IOError: If the path is not found, or the resource can't be opened.
   """
   data_files_path = _pathlib.Path(_inspect.getfile(_sys._getframe(1))).parent  # pylint: disable=protected-access
-  path = str((data_files_path / path).resolve())
-  return path
+  return str((data_files_path / path).resolve())
 
 
 class BaseOpTestCase(parameterized.TestCase):
