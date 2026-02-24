@@ -15,10 +15,11 @@
 
 """E2E tests for the quantizer for model with fully connected op."""
 
-import os
+import pathlib
 
 from absl.testing import parameterized
 import absl.testing.absltest as absltest
+
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import quantizer
 from ai_edge_quantizer.utils import test_utils
@@ -69,7 +70,7 @@ class FullyConnectedTest(test_utils.BaseOpTestCase):
   ):
     algorithm_key, weight_tolerance, output_tolerance = algorithm_and_tolerances
     model, granularity = model_and_granularity
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model
     op_config = _OpQuantConfig(
         weight_tensor_config=_TensorQuantConfig(
             num_bits=weight_bit_width,
@@ -108,7 +109,7 @@ class FullyConnectedTest(test_utils.BaseOpTestCase):
   ):
     algorithm_key = algorithms
     model = 'tensor_i4rangedvalues_fc.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model
     op_config = _OpQuantConfig(
         weight_tensor_config=_TensorQuantConfig(
             num_bits=4,
@@ -153,7 +154,7 @@ class FullyConnectedTest(test_utils.BaseOpTestCase):
 
     algorithm_key, weight_tolerance, output_tolerance = algorithm_and_tolerances
     model, granularity = model_and_granularity
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model
     op_config = _OpQuantConfig(
         weight_tensor_config=_TensorQuantConfig(
             num_bits=weight_bit_width,
@@ -194,7 +195,7 @@ class FullyConnectedTest(test_utils.BaseOpTestCase):
     weight_tolerance = 1e-2
     output_tolerance = 1e-1
     model = 'tensor_i4rangedvalues_fc.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model
     op_config = _OpQuantConfig(
         weight_tensor_config=_TensorQuantConfig(
             num_bits=4,
@@ -243,7 +244,7 @@ class FullyConnectedTest(test_utils.BaseOpTestCase):
   ):
     algorithm_key, weight_tolerance, output_tolerance = algorithm_and_tolerances
     model, granularity = model_and_granularity
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model
     op_config = _OpQuantConfig(
         activation_tensor_config=_TensorQuantConfig(
             num_bits=8,
@@ -298,7 +299,7 @@ class FullyConnectedTest(test_utils.BaseOpTestCase):
   ):
     algorithm_key, weight_tolerance, output_tolerance = algorithm_and_tolerances
     model, granularity = model_and_granularity
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model
     op_config = _OpQuantConfig(
         activation_tensor_config=_TensorQuantConfig(
             num_bits=16,
@@ -343,7 +344,7 @@ class FullyConnectedTest(test_utils.BaseOpTestCase):
   ):
     algorithm_key = algorithms
     model = 'tensor_i4rangedvalues_fc.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model
     op_config = _OpQuantConfig(
         activation_tensor_config=_TensorQuantConfig(
             num_bits=activation_bit_width,

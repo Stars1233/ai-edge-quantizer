@@ -15,7 +15,7 @@
 
 """E2E tests for the quantizer for models with gather nd."""
 
-import os
+import pathlib
 
 from absl.testing import parameterized
 import absl.testing.absltest as absltest
@@ -49,7 +49,7 @@ class GatherNdTest(test_utils.BaseOpTestCase):
   ):
     output_tolerance = 0.02
     model_filename = 'single_gather_nd_with_const_indices.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model_filename)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model_filename
 
     activation_config = test_utils.get_static_activation_quant_setting(
         activations_num_bits, symmetric
@@ -76,7 +76,7 @@ class GatherNdTest(test_utils.BaseOpTestCase):
   ):
     output_tolerance = 1e-3
     model_filename = 'single_gather_nd_with_const_params.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model_filename)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model_filename
 
     activation_config = test_utils.get_static_activation_quant_setting(
         activations_num_bits, symmetric

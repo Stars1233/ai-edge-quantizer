@@ -15,7 +15,7 @@
 
 """E2E tests for the quantizer for model with space_to_depth."""
 
-import os
+import pathlib
 
 from absl.testing import parameterized
 import absl.testing.absltest as absltest
@@ -46,7 +46,7 @@ class SpaceToDepthTest(test_utils.BaseOpTestCase):
   ):
     output_tolerance = 5e-3
     model_filename = 'single_space_to_depth.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model_filename)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model_filename
 
     activation_config = test_utils.get_static_activation_quant_setting(
         activations_num_bits, symmetric

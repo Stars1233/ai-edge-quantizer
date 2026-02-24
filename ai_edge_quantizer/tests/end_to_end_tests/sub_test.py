@@ -19,11 +19,11 @@ from absl.testing import parameterized
 import absl.testing.absltest as absltest
 import numpy as np
 
+import os
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import quantizer
 from ai_edge_quantizer.utils import test_utils
 from ai_edge_quantizer.utils import tfl_interpreter_utils
-import os
 
 _OpExecutionMode = qtyping.OpExecutionMode
 _OpName = qtyping.TFLOperationName
@@ -102,7 +102,7 @@ class SubTest(parameterized.TestCase):
     )
     quant_result = self._quantizer.quantize(calibration_result)
     # Check model size.
-    with gfile.GFile(self.float_model_path, 'rb') as f:
+    with open(self.float_model_path, 'rb') as f:
       float_model_bytearray = bytearray(f.read())
     self.assertLess(
         len(quant_result.quantized_model), len(float_model_bytearray)

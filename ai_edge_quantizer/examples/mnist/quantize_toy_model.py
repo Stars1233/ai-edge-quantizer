@@ -19,7 +19,6 @@ This script quantizes an MNIST toy model and runs inference on a sample MNIST
 image.
 """
 
-import os
 import random
 from typing import Any, Optional
 
@@ -29,6 +28,7 @@ import numpy as np
 from PIL import Image
 import tensorflow as tf
 
+import os
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import quantizer
 from ai_edge_quantizer.utils import test_utils
@@ -78,7 +78,8 @@ def _check_user_inputs() -> None:
   if not os.path.exists(_IMG_PATH.value):
     raise ValueError('Image file does not exist. Please check the image path.')
 
-  os.makedirs(_OUTPUT_DIR.value, exist_ok=True)
+  if not os.path.exists(_OUTPUT_DIR.value):
+    os.makedirs(_OUTPUT_DIR.value)
 
 
 def quantize(

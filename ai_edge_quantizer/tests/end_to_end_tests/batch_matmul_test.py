@@ -19,10 +19,10 @@ from absl.testing import parameterized
 import absl.testing.absltest as absltest
 import numpy as np
 
+import os
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import quantizer
 from ai_edge_quantizer.utils import test_utils
-import os
 
 _ComputePrecision = qtyping.ComputePrecision
 _OpName = qtyping.TFLOperationName
@@ -64,7 +64,7 @@ class BatchMatmulTest(parameterized.TestCase):
 
   @parameterized.parameters(
       ('../../recipes/default_af32w4float_recipe.json', 0.1),
-      ('../../recipes/default_af32w8float_recipe.json', 0.01)
+      ('../../recipes/default_af32w8float_recipe.json', 0.01),
   )
   def test_bmm_constant_input_model_weight_only(self, recipe_path, output_tol):
     self._custom_setup('bmm_constant_input.tflite')
@@ -75,7 +75,7 @@ class BatchMatmulTest(parameterized.TestCase):
     )
     quant_result = self._quantizer.quantize(calibration_result)
     # Check model size.
-    with gfile.GFile(self.float_model_path, 'rb') as f:
+    with open(self.float_model_path, 'rb') as f:
       float_model_bytearray = bytearray(f.read())
     self.assertLess(
         len(quant_result.quantized_model), len(float_model_bytearray)

@@ -15,7 +15,7 @@
 
 """E2E tests for the quantizer for model with reduce_min op."""
 
-import os
+import pathlib
 
 from absl.testing import parameterized
 import absl.testing.absltest as absltest
@@ -49,7 +49,7 @@ class ReduceMinTest(test_utils.BaseOpTestCase):
   ):
     output_tolerance = 4e-5
     model_filename = 'single_reduce_min.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model_filename)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model_filename
 
     activation_config = test_utils.get_static_activation_quant_setting(
         activations_num_bits, symmetric

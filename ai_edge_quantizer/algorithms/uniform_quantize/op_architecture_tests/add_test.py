@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
+import pathlib
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -43,8 +43,8 @@ class AddTest(op_test_utils.BaseQuantizeTest):
   def _custom_setup(self, test_model_file: str):
     np.random.seed(666)
 
-    self._test_model_path = os.path.join(
-        _TEST_DATA_PREFIX_PATH, test_model_file
+    self._test_model_path = str(
+        pathlib.Path(_TEST_DATA_PREFIX_PATH) / test_model_file
     )
     self._op_test_info = _OpTestInfo(
         test_model=tfl_flatbuffer_utils.read_model(self._test_model_path),

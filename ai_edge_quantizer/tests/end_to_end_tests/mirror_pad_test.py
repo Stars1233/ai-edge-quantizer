@@ -15,11 +15,10 @@
 
 """E2E tests for the quantizer for model with padv2."""
 
-import os
+import pathlib
 
 from absl.testing import parameterized
 import absl.testing.absltest as absltest
-
 
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import quantizer
@@ -49,7 +48,7 @@ class MirrorPadTest(test_utils.BaseOpTestCase):
   ):
     output_tolerance = 1e-2
     model_filename = 'single_symmetric_pad.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model_filename)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model_filename
 
     activation_config = test_utils.get_static_activation_quant_setting(
         activations_num_bits, symmetric

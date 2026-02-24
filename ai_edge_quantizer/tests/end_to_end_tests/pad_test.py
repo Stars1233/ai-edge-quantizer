@@ -15,7 +15,7 @@
 
 """E2E tests for the quantizer for model with pad."""
 
-import os
+import pathlib
 
 from absl.testing import parameterized
 import absl.testing.absltest as absltest
@@ -54,7 +54,7 @@ class PadTest(test_utils.BaseOpTestCase):
     expected_model_size_reduction = -40
 
     model_filename = 'single_pad.tflite'
-    model_path = os.path.join(_TEST_MODEL_FOLDER, model_filename)
+    model_path = pathlib.Path(_TEST_MODEL_FOLDER) / model_filename
 
     activation_config = test_utils.get_static_activation_quant_setting(
         *activations_num_bits_and_symmetric
