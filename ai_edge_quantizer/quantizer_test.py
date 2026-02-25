@@ -16,11 +16,13 @@
 import json
 import pathlib
 
+from absl.testing import absltest
 from absl.testing import parameterized
 import numpy as np
-import os
 
-import absl.testing.absltest as absltest
+import os
+from ai_edge_quantizer import algorithm_manager
+from ai_edge_quantizer import default_policy
 from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import quantizer
 from ai_edge_quantizer.utils import test_utils
@@ -82,7 +84,8 @@ class QuantizerTest(parameterized.TestCase):
     super().setUp()
     self._tmp_save_path = self.create_tempdir().full_path
     self._test_model_path = str(
-        pathlib.Path(TEST_DATA_PREFIX_PATH) / 'tests/models/conv_fc_mnist.tflite'
+        pathlib.Path(TEST_DATA_PREFIX_PATH)
+        / 'tests/models/conv_fc_mnist.tflite'
     )
     self._test_recipe_path = str(
         pathlib.Path(TEST_DATA_PREFIX_PATH)
@@ -445,6 +448,12 @@ class QuantizerTest(parameterized.TestCase):
         op_config=test_op_config,
     )
 
+    # Restore default policy to avoid side effects on other tests.
+    algorithm_manager.register_config_check_policy_func(
+        algorithm_manager.AlgorithmName.MIN_MAX_UNIFORM_QUANT,
+        default_policy.DEFAULT_CONFIG_CHECK_POLICY,
+    )
+
   def test_two_pass_quantization_with_conv_and_fc_succeeds(self):
     float_model_path = self._test_model_path
 
@@ -455,9 +464,7 @@ class QuantizerTest(parameterized.TestCase):
     drq_quantizer = quantizer.Quantizer(float_model_path)
     drq_quantizer.load_quantization_recipe(drq_recipe_path)
     drq_result = drq_quantizer.quantize()
-    drq_model_path = str(
-        pathlib.Path(self._tmp_save_path) / 'drq_model.tflite'
-    )
+    drq_model_path = str(pathlib.Path(self._tmp_save_path) / 'drq_model.tflite')
     drq_result.export_model(drq_model_path)
 
     srq_recipe_path = str(
@@ -472,9 +479,7 @@ class QuantizerTest(parameterized.TestCase):
     )
     calibration_result = srq_quantizer.calibrate(representative_dataset)
     srq_result = srq_quantizer.quantize(calibration_result)
-    srq_model_path = str(
-        pathlib.Path(self._tmp_save_path) / 'srq_model.tflite'
-    )
+    srq_model_path = str(pathlib.Path(self._tmp_save_path) / 'srq_model.tflite')
     srq_result.export_model(srq_model_path)
 
 
@@ -483,7 +488,8 @@ class QuantizerBytearrayInputs(absltest.TestCase):
   def setUp(self):
     super().setUp()
     self._test_model_path = str(
-        pathlib.Path(TEST_DATA_PREFIX_PATH) / 'tests/models/conv_fc_mnist.tflite'
+        pathlib.Path(TEST_DATA_PREFIX_PATH)
+        / 'tests/models/conv_fc_mnist.tflite'
     )
     self._test_recipe_path = str(
         pathlib.Path(TEST_DATA_PREFIX_PATH)
@@ -524,7 +530,8 @@ class QuantizerMultiSignatureModelTest(parameterized.TestCase):
     super().setUp()
     self._tmp_save_path = self.create_tempdir().full_path
     self._test_model_path = str(
-        pathlib.Path(TEST_DATA_PREFIX_PATH) / 'tests/models/two_signatures.tflite'
+        pathlib.Path(TEST_DATA_PREFIX_PATH)
+        / 'tests/models/two_signatures.tflite'
     )
     self._test_recipe_path = str(
         pathlib.Path(TEST_DATA_PREFIX_PATH)
@@ -644,9 +651,7 @@ class QuantizerMultiSignatureModelTest(parameterized.TestCase):
     calib_result = self._quantizer.calibrate(scarce_calibration_dataset)
 
     # Quantize and expect an error about missing signature in calibration data.
-    error_message = (
-        'MUL(index: 0) not found in tensor_name_to_qsv'
-    )
+    error_message = 'MUL(index: 0) not found in tensor_name_to_qsv'
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
     ):
@@ -737,8 +742,7 @@ class QuantizerFullyConnectedTest(parameterized.TestCase):
     super().setUp()
     self._tmp_save_path = self.create_tempdir().full_path
     self._test_model_path = str(
-        pathlib.Path(TEST_DATA_PREFIX_PATH)
-        / 'tests/models/single_fc.tflite',
+        pathlib.Path(TEST_DATA_PREFIX_PATH) / 'tests/models/single_fc.tflite',
     )
 
     self._test_recipe_path = str(
