@@ -176,6 +176,32 @@ class ComparisonResultTest(absltest.TestCase):
         self.assertIn('Mul/y', signature_result['constant_tensors'])
         self.assertNotIn('Add/y', signature_result['constant_tensors'])
 
+  def test_add_new_signature_results_validate_output_tensors_only(self):
+    for signature_key, test_result in self.test_data.items():
+      self.comparison_result.add_new_signature_results(
+          'mean_squared_difference',
+          test_result,
+          signature_key,
+          validate_output_tensors_only=True,
+      )
+    self.assertLen(
+        self.comparison_result.available_signature_keys(), len(self.test_data)
+    )
+
+    for signature_key in self.test_data:
+      signature_result = self.comparison_result.get_signature_comparison_result(
+          signature_key
+      )
+      input_tensors = signature_result.input_tensors
+      output_tensors = signature_result.output_tensors
+      constant_tensors = signature_result.constant_tensors
+      intermediate_tensors = signature_result.intermediate_tensors
+
+      self.assertEmpty(input_tensors)
+      self.assertLen(output_tensors, 1)
+      self.assertEmpty(constant_tensors)
+      self.assertEmpty(intermediate_tensors)
+
 
 class ModelValidatorCompareTest(absltest.TestCase):
 
@@ -227,6 +253,32 @@ class ModelValidatorCompareTest(absltest.TestCase):
 
     self.assertAlmostEqual(input_tensors['serving_default_input_2:0'], 0)
     self.assertAlmostEqual(constant_tensors['arith.constant1'], 0)
+    self.assertLess(output_tensors['StatefulPartitionedCall:0'], 1e-5)
+
+  def test_model_validator_compare_validate_output_tensors_only(self):
+    error_metric = 'mean_squared_difference'
+    comparison_result = model_validator.compare_model(
+        self.reference_model,
+        self.target_model,
+        self.test_data,
+        error_metric,
+        validation_utils.mean_squared_difference,
+        validate_output_tensors_only=True,
+    )
+    result = comparison_result.get_signature_comparison_result(
+        self.signature_key
+    )
+    self.assertEqual(result.error_metric, 'mean_squared_difference')
+    input_tensors = result.input_tensors
+    output_tensors = result.output_tensors
+    constant_tensors = result.constant_tensors
+    intermediate_tensors = result.intermediate_tensors
+
+    self.assertEmpty(input_tensors)
+    self.assertLen(output_tensors, 1)
+    self.assertEmpty(constant_tensors)
+    self.assertEmpty(intermediate_tensors)
+
     self.assertLess(output_tensors['StatefulPartitionedCall:0'], 1e-5)
 
   def test_create_json_for_model_explorer(self):

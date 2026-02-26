@@ -98,13 +98,16 @@ class ComparisonResult:
       error_metric: str,
       comparison_result: dict[str, float],
       signature_key: str = _DEFAULT_SIGNATURE_KEY,
-  ):
+      validate_output_tensors_only: bool = False,
+  ) -> None:
     """Add a new signature result to the comparison result.
 
     Args:
       error_metric: The name of the error metric used for comparison.
       comparison_result: A dictionary of tensor name and its value.
       signature_key: The model signature that the comparison_result belongs to.
+      validate_output_tensors_only: If True, only compare output tensors.
+        Otherwise, compare all tensors.
 
     Raises:
       ValueError: If the signature_key is already in the comparison_results.
@@ -114,31 +117,36 @@ class ComparisonResult:
 
     result = {key: float(value) for key, value in comparison_result.items()}
 
-    input_tensor_results = {}
-    for name in utils.get_input_tensor_names(
-        self._reference_model, signature_key
-    ):
-      if name in result:
-        input_tensor_results[name] = result.pop(name)
-
     output_tensor_results = {}
     for name in utils.get_output_tensor_names(
         self._reference_model, signature_key
     ):
       output_tensor_results[name] = result.pop(name)
 
+    input_tensor_results = {}
     constant_tensor_results = {}
-    # Only get constant tensors from the main subgraph of the signature.
-    subgraph_index = utils.get_signature_main_subgraph_index(
-        utils.create_tfl_interpreter(self._reference_model),
-        signature_key,
-    )
-    for name in utils.get_constant_tensor_names(
-        self._reference_model,
-        subgraph_index,
-    ):
-      if name in result:
-        constant_tensor_results[name] = result.pop(name)
+    if validate_output_tensors_only:
+      # No intermediate tensors are validated when validate_output_tensors_only
+      # is True.
+      result = {}
+    else:
+      for name in utils.get_input_tensor_names(
+          self._reference_model, signature_key
+      ):
+        if name in result:
+          input_tensor_results[name] = result.pop(name)
+
+      # Only get constant tensors from the main subgraph of the signature.
+      subgraph_index = utils.get_signature_main_subgraph_index(
+          utils.create_tfl_interpreter(self._reference_model),
+          signature_key,
+      )
+      for name in utils.get_constant_tensor_names(
+          self._reference_model,
+          subgraph_index,
+      ):
+        if name in result:
+          constant_tensor_results[name] = result.pop(name)
 
     self._comparison_results[signature_key] = SingleSignatureComparisonResult(
         error_metric=error_metric,
@@ -353,6 +361,7 @@ def compare_model(
         error_metric,
         agregated_results,
         signature_key,
+        validate_output_tensors_only,
     )
   return model_comparion_result
 
