@@ -100,12 +100,14 @@ class TflUtilsSingleSignatureModelTest(absltest.TestCase):
     with self.assertRaisesRegex(ValueError, "Tensor data is null."):
       tfl_interpreter_utils.get_tensor_name_to_content_map(tfl_interpreter)
 
-  def test_is_tensor_quantized(self):
+  def test_has_quantization_params(self):
     tfl_interpreter = tfl_interpreter_utils.create_tfl_interpreter(
         self._test_model_path
     )
     input_details = tfl_interpreter.get_input_details()[0]
-    self.assertFalse(tfl_interpreter_utils.is_tensor_quantized(input_details))
+    self.assertFalse(
+        tfl_interpreter_utils.has_quantization_params(input_details)
+    )
 
   def test_get_input_tensor_names(self):
     input_tensor_names = tfl_interpreter_utils.get_input_tensor_names(
@@ -154,12 +156,14 @@ class TflUtilsQuantizedModelTest(absltest.TestCase):
         "conv2d_input": np.random.rand(1, 28, 28, 1).astype(np.float32)
     }
 
-  def test_is_tensor_quantized(self):
+  def test_has_quantization_params(self):
     tfl_interpreter = tfl_interpreter_utils.create_tfl_interpreter(
         self._test_model_path
     )
     input_details = tfl_interpreter.get_input_details()[0]
-    self.assertTrue(tfl_interpreter_utils.is_tensor_quantized(input_details))
+    self.assertTrue(
+        tfl_interpreter_utils.has_quantization_params(input_details)
+    )
 
   def test_invoke_interpreter_signature(self):
     tfl_interpreter = tfl_interpreter_utils.create_tfl_interpreter(
@@ -173,6 +177,34 @@ class TflUtilsQuantizedModelTest(absltest.TestCase):
     # Assert the input data is not modified in-place b/353340272.
     self.assertEqual(
         self._signature_input_data["conv2d_input"].dtype, np.float32
+    )
+
+  def test_invoke_interpreter_signature_with_quantized_input(self):
+    tfl_interpreter = tfl_interpreter_utils.create_tfl_interpreter(
+        self._test_model_path
+    )
+    # Get the expected result with float input (input quantization happens
+    # inside the model).
+    expected_output = tfl_interpreter_utils.invoke_interpreter_signature(
+        tfl_interpreter, self._signature_input_data
+    )
+
+    # Quantize the input data.
+    input_details = tfl_interpreter.get_input_details()[0]
+    scale, zero_point = input_details["quantization"]
+    input_data = self._signature_input_data["conv2d_input"]
+    quantized_input_data = (
+        (input_data / scale + zero_point).round().astype(input_details["dtype"])
+    )
+    quantized_input = {"conv2d_input": quantized_input_data}
+
+    # Get the result with quantized input.
+    actual_output = tfl_interpreter_utils.invoke_interpreter_signature(
+        tfl_interpreter, quantized_input
+    )
+
+    np.testing.assert_array_equal(
+        expected_output["dense_1"], actual_output["dense_1"]
     )
 
 
