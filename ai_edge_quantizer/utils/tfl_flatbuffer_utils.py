@@ -22,10 +22,11 @@ from typing import Any, Optional, Union
 import immutabledict
 import numpy as np
 
+import os
 from ai_edge_litert.tools import flatbuffer_utils
 from ai_edge_quantizer import qtyping
 from ai_edge_litert import schema_py_generated as schema  # pylint:disable=g-direct-tensorflow-import
-import os
+
 
 _TFLOpName = qtyping.TFLOperationName
 
@@ -372,8 +373,8 @@ def get_op_scope(
 ) -> str:
   """Get the op scope.
 
-  Op scope is defined by the output tensor names (following the Model
-  Explorer).
+  Op scope is defined by the output tensor names (following ModelExplorer). If
+  no output tensors are present, the input tensor names are used instead.
 
   Args:
     op: The op that needs to be parsed.
@@ -385,12 +386,25 @@ def get_op_scope(
   Returns:
     Scope for the op.
   """
-  scope = ""
+
+  def _get_valid_tensor_names(tensor_indices: list[int]) -> list[str]:
+    """Gets names of tensors for valid indices."""
+    names = []
+    for idx in tensor_indices:
+      if idx != -1:
+        names.append(get_tensor_name(subgraph_tensors[idx]))
+    return [name for name in names if name]
+
   # Op scope is determined by output tensors.
-  for output_tensor_idx in op.outputs:
-    if output_tensor_idx != -1:
-      scope += get_tensor_name(subgraph_tensors[output_tensor_idx])
-      scope += ";"  # Split names.
+  tensor_names = _get_valid_tensor_names(op.outputs)
+  # If no output tensors, use input tensors.
+  if not tensor_names:
+    tensor_names = _get_valid_tensor_names(op.inputs)
+
+  scope = ";".join(tensor_names)
+  # Add a trailing semicolon to help distinguish scopes with the same prefix.
+  if tensor_names:
+    scope += ";"
   if len(scope) > max_length:
     logging.warning(
         "Op scope is too long, truncating to %d characters. Truncated scope:"
