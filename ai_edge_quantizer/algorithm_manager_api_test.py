@@ -15,37 +15,63 @@
 
 """Tests for algorithm_manager_api."""
 
+from collections.abc import MutableMapping, Sequence
+
 from absl.testing import absltest
 from absl.testing import parameterized
+import numpy as np
 
 from ai_edge_quantizer import algorithm_manager_api
 from ai_edge_quantizer import default_policy
 from ai_edge_quantizer import qtyping
+from ai_edge_quantizer.algorithms.utils import common_utils
 from ai_edge_quantizer.utils import qsv_utils
-
 
 _TFLOpName = qtyping.TFLOperationName
 
 
 # Sample functions for test cases.
-def _sample_init_qsvs(*_, **__):
-  return 1.0, dict()
+def _sample_init_qsv(
+    op_info: qtyping.OpInfo,  # pylint: disable=unused-argument
+    graph_info: qtyping.GraphInfo,  # pylint: disable=unused-argument
+    inputs_to_ignore: Sequence[int] | None,  # pylint: disable=unused-argument
+    outputs_to_ignore: Sequence[int] | None,  # pylint: disable=unused-argument
+) -> qtyping.QSV:
+  return {"_sample_init_qsv": None}
 
 
-def _sample_calibration_func(*_, **__):
-  return 2.0, dict()
+def _sample_calibration_func(
+    tfl_op: qtyping.OperatorT,  # pylint: disable=unused-argument
+    graph_info: qtyping.GraphInfo,  # pylint: disable=unused-argument
+    tensor_name_to_qsv: MutableMapping[str, np.ndarray],  # pylint: disable=unused-argument
+    inputs_to_ignore: Sequence[int] | None = None,  # pylint: disable=unused-argument
+    outputs_to_ignore: Sequence[int] | None = None,  # pylint: disable=unused-argument
+) -> dict[str, qtyping.QSV]:
+  return {"_sample_calibration_func": {"dummy": None}}
 
 
-def _sample_materialize_func(*_, **__):
-  return 3.0, dict()
+def _sample_materialize_func(
+    op_info: qtyping.OpInfo,  # pylint: disable=unused-argument
+    graph_info: qtyping.GraphInfo,  # pylint: disable=unused-argument
+    tensor_name_to_qsv: MutableMapping[str, qtyping.QSV],  # pylint: disable=unused-argument
+    tensor_quant_params_cache: common_utils.TensorQuantParamsCache,  # pylint: disable=unused-argument
+) -> list[qtyping.TensorTransformationParams]:
+  return []
 
 
-def _sample_update_qsv_func(*_, **__):
-  return 4.0, dict()
+def _sample_update_qsv_func(qsv: qtyping.QSV, new_qsv: qtyping.QSV) -> qtyping.QSV:  # pylint: disable=unused-argument
+  return {"_sample_update_qsv_func": None}
 
 
-def _sample_check_op_config_func(_, op_config):
-  if op_config.weight_tensor_config.num_bits == 17:
+def _sample_check_op_config_func(
+    op_name: _TFLOpName,  # pylint: disable=unused-argument
+    op_quant_config: qtyping.OpQuantizationConfig,
+    config_check_policy: qtyping.ConfigCheckPolicyDict,  # pylint: disable=unused-argument
+) -> None:
+  if (
+      op_quant_config.weight_tensor_config
+      and op_quant_config.weight_tensor_config.num_bits == 17
+  ):
     raise ValueError("Unsupported number of bits.")
 
 
@@ -69,14 +95,14 @@ class AlgorithmManagerApiTest(parameterized.TestCase):
     self._alg_manager.register_quantized_op(
         algorithm_key="ptq",
         tfl_op_name=_TFLOpName.FULLY_CONNECTED,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
     )
     self._alg_manager.register_quantized_op(
         algorithm_key="gptq",
         tfl_op_name=_TFLOpName.CONV_2D,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
     )
@@ -97,14 +123,14 @@ class AlgorithmManagerApiTest(parameterized.TestCase):
     self._alg_manager.register_quantized_op(
         algorithm_key=algorithm_key,
         tfl_op_name=_TFLOpName.FULLY_CONNECTED,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
     )
     self._alg_manager.register_quantized_op(
         algorithm_key=algorithm_key,
         tfl_op_name=_TFLOpName.CONV_2D,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
     )
@@ -119,7 +145,7 @@ class AlgorithmManagerApiTest(parameterized.TestCase):
     self._alg_manager.register_quantized_op(
         algorithm_key=algorithm_key,
         tfl_op_name=tfl_op,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
     )
@@ -128,13 +154,13 @@ class AlgorithmManagerApiTest(parameterized.TestCase):
         tfl_op,
         qtyping.QuantizeMode.MATERIALIZE,
     )
-    self.assertEqual(_sample_materialize_func()[0], materialize_func()[0])
+    self.assertIs(_sample_materialize_func, materialize_func)
     calibration_func = self._alg_manager.get_quantization_func(
         algorithm_key,
         tfl_op,
         qtyping.QuantizeMode.CALIBRATE,
     )
-    self.assertEqual(_sample_calibration_func()[0], calibration_func()[0])
+    self.assertIs(_sample_calibration_func, calibration_func)
 
     # Query for unsupported operation.
     error_message = "Unsupported operation"
@@ -164,12 +190,12 @@ class AlgorithmManagerApiTest(parameterized.TestCase):
     self._alg_manager.register_quantized_op(
         algorithm_key=algorithm_key,
         tfl_op_name=tfl_op,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
     )
     init_qsv_func = self._alg_manager.get_init_qsv_func(algorithm_key, tfl_op)
-    self.assertEqual(_sample_init_qsvs()[0], init_qsv_func()[0])
+    self.assertIs(_sample_init_qsv, init_qsv_func)
 
     # Query for unsupported operation.
     error_message = "Unsupported operation"
@@ -225,7 +251,7 @@ class AlgorithmManagerApiTest(parameterized.TestCase):
     self._alg_manager.register_quantized_op(
         algorithm_key=algorithm_key,
         tfl_op_name=tfl_op,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
     )
@@ -240,7 +266,7 @@ class AlgorithmManagerApiTest(parameterized.TestCase):
     self._alg_manager.register_quantized_op(
         algorithm_key=algorithm_key,
         tfl_op_name=tfl_op,
-        init_qsv_func=_sample_init_qsvs,
+        init_qsv_func=_sample_init_qsv,
         calibration_func=_sample_calibration_func,
         materialize_func=_sample_materialize_func,
         update_qsv_func=_sample_update_qsv_func,

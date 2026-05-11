@@ -15,12 +15,139 @@
 
 """The Python API for Algorithm Manager of Quantizer."""
 
-from collections.abc import Callable
+from collections.abc import MutableMapping, Sequence
 import dataclasses
-import functools
-from typing import Any, Optional
+from typing import Literal, Protocol, overload
+
+import numpy as np
+
 from ai_edge_quantizer import qtyping
+from ai_edge_quantizer.algorithms.utils import common_utils
 from ai_edge_quantizer.utils import qsv_utils
+
+
+class CheckOpQuantConfigFunc(Protocol):
+  """Type hint and documentation for config checking functions."""
+
+  def __call__(
+      self,
+      op_name: qtyping.TFLOperationName,
+      op_quant_config: qtyping.OpQuantizationConfig,
+      config_check_policy: qtyping.ConfigCheckPolicyDict,
+  ):
+    """Checks the op quantization config against the given policy.
+
+    Args:
+      op_name: The name of the op.
+      op_quant_config: The quantization config for the op.
+      config_check_policy: The policy used to check the op quantization config.
+
+    Raises:
+      ValueError: If the op quantization config is invalid.
+    """
+    ...
+
+
+class InitQSVFunc(Protocol):
+  """Type hint and documentation for QSV initialization functions."""
+
+  def __call__(
+      self,
+      op_info: qtyping.OpInfo,
+      graph_info: qtyping.GraphInfo,
+      inputs_to_ignore: Sequence[int] | None = None,
+      outputs_to_ignore: Sequence[int] | None = None,
+      **kwargs,
+  ) -> qtyping.QSV:
+    """Initialize the QSVs for a given Operation.
+
+    Args:
+      op_info: Aggregated information about the op (e.g., quantization config).
+      graph_info: Graph information needed to perform quantization for the op.
+      inputs_to_ignore: Operand indices to ignore.
+      outputs_to_ignore: Result indices to ignore.
+      **kwargs: Optional algorithm-specific keyword parameters.
+
+    Returns:
+      The initialized QSVs for the operation.
+    """
+    ...
+
+
+class UpdateQSVFunc(Protocol):
+  """Type hint and documentation for QSV update functions."""
+
+  def __call__(
+      self, qsv: qtyping.QSV, new_qsv: qtyping.QSV, **kwargs
+  ) -> qtyping.QSV:
+    """Updates the given QSV.
+
+    Args:
+      qsv: The quantization statistical value of the tensor that need to be
+        updated.
+      new_qsv: The new QSVs (e.g., from new round of calibration).
+      **kwargs: Optional algorithm-specific keyword parameters.
+
+    Returns:
+      The updated QSV for the tensor.
+    """
+    ...
+
+
+class CalibrationFunc(Protocol):
+  """Type hint and documentation for calibration functions."""
+
+  def __call__(
+      self,
+      tfl_op: qtyping.OperatorT,
+      graph_info: qtyping.GraphInfo,
+      tensor_name_to_qsv: MutableMapping[str, np.ndarray],
+      inputs_to_ignore: Sequence[int] | None = None,
+      outputs_to_ignore: Sequence[int] | None = None,
+      **kwargs,
+  ) -> dict[str, qtyping.QSV]:
+    """Collects quantization statistics variables (QSVs) for the op.
+
+    Args:
+      tfl_op: The tfl operation.
+      graph_info: Graph information needed to perform quantization for the op.
+      tensor_name_to_qsv: A map of tensor name to tensor content.
+      inputs_to_ignore: Input tensor indices to ignore.
+      outputs_to_ignore: Output tensor indices to ignore.
+      **kwargs: Optional algorithm-specific keyword parameters.
+
+    Returns:
+      A dictionary mapping tensor names to the collected QSV.
+    """
+    ...
+
+
+class MaterializeFunc(Protocol):
+  """Type hint and documentation for materialize functions."""
+
+  def __call__(
+      self,
+      op_info: qtyping.OpInfo,
+      graph_info: qtyping.GraphInfo,
+      tensor_name_to_qsv: MutableMapping[str, qtyping.QSV],
+      tensor_quant_params_cache: common_utils.TensorQuantParamsCache,
+      **kwargs,
+  ) -> list[qtyping.TensorTransformationParams]:
+    """Materializes tensors for the given op.
+
+    Args:
+      op_info: Aggregated information about the op (e.g., quantization config).
+      graph_info: Graph information needed to perform quantization for the op.
+      tensor_name_to_qsv: A map of tensor name to quantization parameters.
+      tensor_quant_params_cache: Cache of already computed
+        `UniformQuantParams|NonLinearQuantParams` objects keyed on a tuple of
+        the buffer ID and the `TensorQuantizationConfig` used to compute it.
+      **kwargs: Optional algorithm-specific keyword parameters.
+
+    Returns:
+      A list of `_TensorTransformationParams` for the tensors in the op.
+    """
+    ...
 
 
 @dataclasses.dataclass
@@ -28,10 +155,10 @@ class QuantizedOperationInfo:
   """Stores all quantization functions for a given op."""
 
   tfl_op_key: qtyping.TFLOperationName
-  init_qsv_func: Callable[..., Any]
-  calibration_func: Callable[..., Any]
-  materialize_func: Callable[..., Any]
-  update_qsv_func: Callable[..., Any] = qsv_utils.moving_average_update
+  init_qsv_func: InitQSVFunc
+  calibration_func: CalibrationFunc
+  materialize_func: MaterializeFunc
+  update_qsv_func: UpdateQSVFunc = qsv_utils.moving_average_update
 
 
 @dataclasses.dataclass
@@ -44,17 +171,19 @@ class AlgorithmManagerApi:
   """Quantizer API client to manage quantization configs and functions."""
 
   def __init__(self):
-    self._algorithm_registry = dict()
+    self._algorithm_registry: dict[str, QuantizationAlgorithmInfo] = dict()
     # Check if an op quantization config is supported for a given algorithm.
-    self._config_check_registry = dict()
+    self._config_check_registry: dict[str, CheckOpQuantConfigFunc] = dict()
     # Policy to check if an op quantization config is supported for a given
     # algorithm.
-    self._config_check_policy_registry = dict()
+    self._config_check_policy_registry: dict[
+        str, qtyping.ConfigCheckPolicyDict | None
+    ] = dict()
 
   def register_op_quant_config_validation_func(
       self,
       algorithm_key: str,
-      config_check_func: Callable[..., Any],
+      config_check_func: CheckOpQuantConfigFunc,
   ):
     """Register functions to check if an op quantization config is supported."""
     self._config_check_registry[algorithm_key] = config_check_func
@@ -63,10 +192,10 @@ class AlgorithmManagerApi:
       self,
       algorithm_key: str,
       tfl_op_name: qtyping.TFLOperationName,
-      init_qsv_func: Callable[..., Any],
-      calibration_func: Callable[..., Any],
-      materialize_func: Callable[..., Any],
-      update_qsv_func: Callable[..., Any] = qsv_utils.moving_average_update,
+      init_qsv_func: InitQSVFunc,
+      calibration_func: CalibrationFunc,
+      materialize_func: MaterializeFunc,
+      update_qsv_func: UpdateQSVFunc = qsv_utils.moving_average_update,
   ):
     """Register functions to support a quantization operation.
 
@@ -185,12 +314,30 @@ class AlgorithmManagerApi:
 
     return list(self._algorithm_registry[alg_key].quantized_ops.keys())
 
+  @overload
+  def get_quantization_func(
+      self,
+      algorithm_key: str,
+      tfl_op_name: qtyping.TFLOperationName,
+      quantize_mode: Literal[qtyping.QuantizeMode.CALIBRATE],
+  ) -> CalibrationFunc:
+    ...
+
+  @overload
+  def get_quantization_func(
+      self,
+      algorithm_key: str,
+      tfl_op_name: qtyping.TFLOperationName,
+      quantize_mode: Literal[qtyping.QuantizeMode.MATERIALIZE],
+  ) -> MaterializeFunc:
+    ...
+
   def get_quantization_func(
       self,
       algorithm_key: str,
       tfl_op_name: qtyping.TFLOperationName,
       quantize_mode: qtyping.QuantizeMode,
-  ) -> Callable[..., Any]:
+  ) -> CalibrationFunc | MaterializeFunc:
     """Gets the quantization function.
 
     Args:
@@ -229,7 +376,7 @@ class AlgorithmManagerApi:
       self,
       algorithm_key: str,
       tfl_op_name: qtyping.TFLOperationName,
-  ) -> Callable[..., Any]:
+  ) -> UpdateQSVFunc:
     """Gets the QSV update function for a given algorithm."""
     quantized_algorithm_info = self._algorithm_registry[algorithm_key]
     quantized_op_info = quantized_algorithm_info.quantized_ops
@@ -246,7 +393,7 @@ class AlgorithmManagerApi:
       self,
       algorithm_key: str,
       tfl_op_name: qtyping.TFLOperationName,
-  ) -> functools.partial:
+  ) -> InitQSVFunc:
     """Gets the initial Quantization Statistics Variable function for a given op.
 
     Args:
@@ -273,13 +420,13 @@ class AlgorithmManagerApi:
       quantized_op_info,
       tfl_op_name: qtyping.TFLOperationName,
       quantize_mode: qtyping.QuantizeMode,
-  ):
+  ) -> CalibrationFunc | MaterializeFunc:
     """Gets the function corresponding to the given JAX quantization phase and op."""
-    if quantize_mode == qtyping.QuantizeMode.CALIBRATE:
-      return quantized_op_info[tfl_op_name].calibration_func
-    elif quantize_mode == qtyping.QuantizeMode.MATERIALIZE:
-      return quantized_op_info[tfl_op_name].materialize_func
-    return None
+    match quantize_mode:
+      case qtyping.QuantizeMode.CALIBRATE:
+        return quantized_op_info[tfl_op_name].calibration_func
+      case qtyping.QuantizeMode.MATERIALIZE:
+        return quantized_op_info[tfl_op_name].materialize_func
 
   # TODO: b/53780772 - Merge this function with
   # register_op_quant_config_validation_func after full transition to new check
@@ -287,7 +434,7 @@ class AlgorithmManagerApi:
   def register_config_check_policy(
       self,
       algorithm_key: str,
-      config_check_policy: Optional[qtyping.ConfigCheckPolicyDict],
+      config_check_policy: qtyping.ConfigCheckPolicyDict | None,
   ):
     """Registers a policy to check the op quantization config."""
     self._config_check_policy_registry[algorithm_key] = config_check_policy
