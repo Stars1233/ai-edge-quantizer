@@ -104,7 +104,7 @@ def resolve_recipe(
     recipe_name_or_path: qtyping.Path,
     extra_dirs: Collection[qtyping.Path] | None = None,
 ) -> QuantRecipeFileContents:
-  """Reads a JSON file containing quant recipes or paths thereto.
+  """Loads a quantization recipe given by name or path.
 
   Recipes can be identified either:
 
@@ -154,6 +154,15 @@ def _is_quant_recipe(
   )
 
 
+def _as_quant_recipe_or_none(
+    recipe: QuantRecipeFileContents,
+) -> qtyping.ModelQuantizationRecipe | None:
+  if _is_quant_recipe(recipe):
+    return recipe
+  else:
+    return None
+
+
 def _is_unresolved_recipe_mapping(
     recipe: QuantRecipeFileContents,
 ) -> TypeGuard[UnresolvedQuantRecipeMapping]:
@@ -164,28 +173,31 @@ def _is_unresolved_recipe_mapping(
   )
 
 
-def resolve_litertlm_recipe_mapping(
+def resolve_litertlm_recipe_or_mapping(
     recipe_name_or_path: qtyping.Path,
 ) -> QuantRecipeMapping:
-  """Reads a JSON file containing a mapping of model_types to quant recipes.
+  """Loads a LiteRT-LM quantization recipe given by name or path.
 
-  The JSON file contains a mapping of strings, corresponding to a `model_type`
-  or `'default'`, to either:
-  1. A `list[dict[str, Any]]` corresponding to a quantization recipe for the
-     `model_type`,
-  2. A canonical name, where `name` corresponds to a file
-     `recipes/name_recipe.json` in the code's base directory,
-  3. A `str` containing the absolute path to a JSON file containing the
-     quantization recipe for the `model_type`,
-  4. A `str` containing the  path, relative to the current working directory, to
-     a JSON file containing the quantization recipe for the `model_type`,
-  5. A `str` containing the  path, relative to the directory containing
-     `recipe_mapping_path`, to a JSON file containing the quantization recipe
-     for the `model_type`.
+  The named recipe or JSON file is either:
+  1. A quantization recipe, which will be used for all models in the LiteRT-LM
+    file.
+  2. A mapping of strings, corresponding to a `model_type` or `'default'`, to
+    either:
+    1. A `list[dict[str, Any]]` corresponding to a quantization recipe for the
+      `model_type`,
+    2. A canonical name, where `name` corresponds to a file
+      `recipes/name_recipe.json` in the code's base directory,
+    3. A `str` containing the absolute path to a JSON file containing the
+      quantization recipe for the `model_type`,
+    4. A `str` containing the  path, relative to the current working directory,
+      to a JSON file containing the quantization recipe for the `model_type`,
+    5. A `str` containing the  path, relative to the directory containing
+      `recipe_mapping_path`, to a JSON file containing the quantization recipe
+      for the `model_type`.
 
   Args:
     recipe_name_or_path: The name of, or path to, a JSON file containing the
-      per-`model_type` recipe mapping.
+      default recipe or a per-`model_type` recipe mapping.
 
   Returns:
     A `QuantRecipeMapping` mapping `model_type` or `'default'` to a quantization
@@ -194,11 +206,21 @@ def resolve_litertlm_recipe_mapping(
   Raises:
     ValueError if the recipe name or path could not be resolved.
   """
-  # Load the per model_type dictionary of recipes.
-  recipe_for_model_type: QuantRecipeFileContents = resolve_recipe(
+  # Load the recipe or per model_type dictionary of recipes.
+  recipe_or_mapping: QuantRecipeFileContents = resolve_recipe(
       recipe_name_or_path
   )
-  if not _is_unresolved_recipe_mapping(recipe_for_model_type):
+
+  # If we got a quant recipe, then return a mapping with it set as the default.
+  if recipe := _as_quant_recipe_or_none(recipe_or_mapping):
+    logging.info(
+        'Using recipe "%s" as the default recipe for all models in the'
+        ' LiteRT-LM file.',
+        recipe_name_or_path,
+    )
+    return {'default': recipe}
+
+  if not _is_unresolved_recipe_mapping(recipe_or_mapping):
     raise ValueError(
         f'Expected LiteRT-LM recipe {recipe_name_or_path} to contain a mapping'
         ' of `model_type` to recipes, recipe names, or recipe file paths.'
@@ -207,8 +229,8 @@ def resolve_litertlm_recipe_mapping(
   # Loop over the map of model_type to recipe and resolve any names/paths.
   extra_dirs = [pathlib.Path(recipe_name_or_path).parent]
   recipe_mapping: QuantRecipeMapping = {}
-  for model_type, recipe_or_path in recipe_for_model_type.items():
-    if not _is_quant_recipe(recipe_or_path):
+  for model_type, recipe_or_path in recipe_or_mapping.items():
+    if (recipe := _as_quant_recipe_or_none(recipe_or_path)) is None:
       recipe: QuantRecipeFileContents = resolve_recipe(
           recipe_or_path, extra_dirs
       )
@@ -218,8 +240,6 @@ def resolve_litertlm_recipe_mapping(
             f' recipe name or recipe file path for model_type {model_type}, but'
             f' got object of type {type(recipe)} instead.'
         )
-    else:
-      recipe: qtyping.ModelQuantizationRecipe = recipe_or_path
     recipe_mapping[model_type] = recipe
 
   return recipe_mapping

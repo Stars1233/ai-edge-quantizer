@@ -101,7 +101,7 @@ class RecipeUtilsTest(absltest.TestCase):
 
     # Load the LiteRT-LM recipe mapping.
     self.assertIsNotNone(
-        litertlm_recipe_mapping := recipe_utils.resolve_litertlm_recipe_mapping(
+        litertlm_recipe_mapping := recipe_utils.resolve_litertlm_recipe_or_mapping(
             litertlm_recipe_path
         )
     )
