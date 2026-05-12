@@ -25,6 +25,7 @@ import flatbuffers
 
 import os
 import io
+from ai_edge_litert.internal import litertlm_builder
 from ai_edge_litert.internal import litertlm_core
 from ai_edge_litert.internal import litertlm_header_schema_py_generated as schema
 from ai_edge_litert.tools import flatbuffer_utils
@@ -198,6 +199,18 @@ class LiteRTLMFile:
     for section_id, section in enumerate(metadata.sectionMetadata.objects):
       section.beginOffset = section_offsets[section_id]
       section.endOffset = section.beginOffset + section_lengths[section_id]
+
+    # Update the system metadata where needed.
+    if not metadata.systemMetadata:
+      metadata.systemMetadata = schema.SystemMetadataT(entries=[])
+    system_metadata = metadata.systemMetadata
+    system_metadata.entries = [
+        m.to_key_value_pair()
+        for m in litertlm_builder.populate_system_metadata([
+            litertlm_builder.Metadata.from_key_value_pair(kvp)
+            for kvp in system_metadata.entries
+        ])
+    ]
 
     # Pack the modified metadata.
     metadata_builder = flatbuffers.Builder(1024)

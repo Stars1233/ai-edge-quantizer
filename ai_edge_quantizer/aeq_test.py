@@ -150,15 +150,22 @@ class AeqTest(parameterized.TestCase):
       # Check whether the file size of the quantized model is roughly 4X smaller
       # than that of the float model (keep in mind that the LiteRT-LM header
       # size did not change).
-      self.assertLess(quantized_size, original_size * 0.36)
+      self.assertLess(quantized_size, original_size * 0.37)
 
-      # Check whether the system and section metadata match.
+      # Check whether the system metadata match, modulo the `uuid` and
+      # `timestamp` fields, which should not..
       original_litertlm = litertlm_utils.LiteRTLMFile(model_file)
       quantized_litertlm = litertlm_utils.LiteRTLMFile(output_path)
-      self.assertEqual(
-          original_litertlm.get_system_metadata(),
-          quantized_litertlm.get_system_metadata(),
-      )
+      original_system_metadata = original_litertlm.get_system_metadata()
+      quantized_system_metadata = quantized_litertlm.get_system_metadata()
+      for tag in ("uuid", "creation_timestamp"):
+        self.assertNotEqual(
+            original_system_metadata.pop(tag),
+            quantized_system_metadata.pop(tag),
+        )
+      self.assertEqual(original_system_metadata, quantized_system_metadata)
+
+      # Check whether the section metadata match.
       self.assertEqual(
           original_litertlm.get_section_metadata(0),
           quantized_litertlm.get_section_metadata(0),
