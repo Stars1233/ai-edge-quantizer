@@ -20,12 +20,44 @@ from ai_edge_quantizer import qtyping
 from ai_edge_quantizer import recipe_manager
 
 AlgorithmName = algorithm_manager.AlgorithmName
+QuantGranularity = qtyping.QuantGranularity
+TFLOperationName = qtyping.TFLOperationName
+
+
+def _dynamic_wix_afp32(
+    num_bits: int,
+    regex: str = '.*',
+    operation_name: TFLOperationName = TFLOperationName.ALL_SUPPORTED,
+    **kwargs
+) -> qtyping.ModelQuantizationRecipe:
+  """Returns a dynamic quantization recipe with int weights and float32 activation.
+
+  All supported ops will be quantized with `num_bits`-bit weights and
+  float32 activations, which will be dynamically quantized to `num_bits`-bit
+  values during inference to enable integer compute. The model quality may
+  suffer due to the on-the-fly quantization. If quality is a concern, consider
+  using weight-only quantization.
+
+  Args:
+    num_bits: The number of bits to quantize to.
+    regex: Optional regular expression for layer name matching.
+    operation_name: Target TFLite operation.
+    **kwargs: Additional arguments passed to `RecipeManager.add_dynamic_config`.
+
+  Returns:
+    A dynamic quantization recipe.
+  """
+  rp_manager = recipe_manager.RecipeManager()
+  rp_manager.add_dynamic_config(
+      regex=regex, operation_name=operation_name, num_bits=num_bits, **kwargs
+  )
+  return rp_manager.get_quantization_recipe()
 
 
 def dynamic_wi8_afp32(
     algorithm_key: AlgorithmName = AlgorithmName.MIN_MAX_UNIFORM_QUANT,
 ) -> qtyping.ModelQuantizationRecipe:
-  """Returns a dynamic quantization recipe with int8 weights and float32 activation.
+  """Returns a dynamic quantization recipe with channelwise quantized int8 weights and float32 activation.
 
   All supported ops will be quantized with int8 weights and float32 activations,
   which will be dynamically quantized to int8 during inference to enable int8
@@ -38,20 +70,13 @@ def dynamic_wi8_afp32(
   Returns:
     A dynamic quantization recipe.
   """
-  rp_manager = recipe_manager.RecipeManager()
-  rp_manager.add_dynamic_config(
-      regex='.*',
-      operation_name=qtyping.TFLOperationName.ALL_SUPPORTED,
-      num_bits=8,
-      algorithm_key=algorithm_key,
-  )
-  return rp_manager.get_quantization_recipe()
+  return dynamic_wi8c_afp32(algorithm_key=algorithm_key)
 
 
 def dynamic_wi4_afp32(
     algorithm_key: AlgorithmName = AlgorithmName.MIN_MAX_UNIFORM_QUANT,
 ) -> qtyping.ModelQuantizationRecipe:
-  """Returns a dynamic quantization recipe with int4 weights and float32 activation.
+  """Returns a dynamic quantization recipe with channelwise quantized int4 weights and float32 activation.
 
   All supported ops will be quantized with int4 weights and float32 activations,
   which will be dynamically quantized to int4 during inference to enable int4
@@ -63,14 +88,7 @@ def dynamic_wi4_afp32(
   Returns:
     A dynamic quantization recipe.
   """
-  rp_manager = recipe_manager.RecipeManager()
-  rp_manager.add_dynamic_config(
-      regex='.*',
-      operation_name=qtyping.TFLOperationName.ALL_SUPPORTED,
-      num_bits=4,
-      algorithm_key=algorithm_key,
-  )
-  return rp_manager.get_quantization_recipe()
+  return dynamic_wi4c_afp32(algorithm_key=algorithm_key)
 
 
 def weight_only_wi8_afp32(
@@ -92,7 +110,7 @@ def weight_only_wi8_afp32(
   rp_manager = recipe_manager.RecipeManager()
   rp_manager.add_weight_only_config(
       regex='.*',
-      operation_name=qtyping.TFLOperationName.ALL_SUPPORTED,
+      operation_name=TFLOperationName.ALL_SUPPORTED,
       num_bits=8,
       algorithm_key=algorithm_key,
   )
@@ -117,7 +135,7 @@ def weight_only_wi4_afp32(
   rp_manager = recipe_manager.RecipeManager()
   rp_manager.add_weight_only_config(
       regex='.*',
-      operation_name=qtyping.TFLOperationName.ALL_SUPPORTED,
+      operation_name=TFLOperationName.ALL_SUPPORTED,
       num_bits=4,
       algorithm_key=algorithm_key,
   )
@@ -141,7 +159,7 @@ def static_wi8_ai8(
   rp_manager = recipe_manager.RecipeManager()
   rp_manager.add_static_config(
       regex='.*',
-      operation_name=qtyping.TFLOperationName.ALL_SUPPORTED,
+      operation_name=TFLOperationName.ALL_SUPPORTED,
       activation_num_bits=8,
       weight_num_bits=8,
       algorithm_key=algorithm_key,
@@ -166,7 +184,7 @@ def static_wi8_ai16(
   rp_manager = recipe_manager.RecipeManager()
   rp_manager.add_static_config(
       regex='.*',
-      operation_name=qtyping.TFLOperationName.ALL_SUPPORTED,
+      operation_name=TFLOperationName.ALL_SUPPORTED,
       activation_num_bits=16,
       weight_num_bits=8,
       algorithm_key=algorithm_key,
@@ -200,3 +218,123 @@ def dynamic_legacy_wi8_afp32():
           },
       })
   ]
+
+
+# Recipe aliases, i.e. basic recipes only, to bue used as building blocks for
+# more complex recipes.
+
+
+# Dynamic quantization recipe with channelwise quantized 8/4-bit int
+# weights and float32 activations.
+dynamic_wi8c_afp32 = lambda **kwargs: _dynamic_wix_afp32(num_bits=8, **kwargs)
+dynamic_wi4c_afp32 = lambda **kwargs: _dynamic_wix_afp32(num_bits=4, **kwargs)
+
+
+# Dynamic quantization recipe with 32/64-blockwisse quantized 8/4-bit int
+# weights and float32 activations for everything.
+dynamic_wi8b32_afp32 = lambda **kwargs: _dynamic_wix_afp32(
+    num_bits=8, granularity=QuantGranularity.BLOCKWISE_32, **kwargs
+)
+dynamic_wi4b32_afp32 = lambda **kwargs: _dynamic_wix_afp32(
+    num_bits=4, granularity=QuantGranularity.BLOCKWISE_32, **kwargs
+)
+dynamic_wi8b64_afp32 = lambda **kwargs: _dynamic_wix_afp32(
+    num_bits=8, granularity=QuantGranularity.BLOCKWISE_64, **kwargs
+)
+dynamic_wi4b64_afp32 = lambda **kwargs: _dynamic_wix_afp32(
+    num_bits=4, granularity=QuantGranularity.BLOCKWISE_64, **kwargs
+)
+
+# Dynamic quantization recipe with channelwise quantized 8/4-bit int
+# weights with Hadamard rotations (`hr`) and float32 activations.
+dynamic_wi8c_hr_afp32 = lambda **kwargs: dynamic_wi8c_afp32(
+    algorithm_key=AlgorithmName.DECOMPOSED_HADAMARD_ROTATION, **kwargs
+)
+dynamic_wi4c_hr_afp32 = lambda **kwargs: dynamic_wi4c_afp32(
+    algorithm_key=AlgorithmName.DECOMPOSED_HADAMARD_ROTATION, **kwargs
+)
+
+# LiteRT-LM Recipes for specific model families, build from the above recipes.
+
+# Gemma-4 mixed 4/8-bit channelwise quantization:
+gemma_mixed48 = lambda: {
+    'tf_lite_embedder': dynamic_wi4c_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_per_layer_embedder': dynamic_wi4c_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_prefill_decode': (
+        # Default is 4-bit channelwise quantization.
+        dynamic_wi4c_afp32(
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+        # Per-layer embeddings need 8 bits.
+        + dynamic_wi8c_afp32(
+            regex='per_layer',
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+    ),
+}
+
+# Gemma-4 mixed 4/8-bit channelwise quantization with Hadamard rotations for the
+# 4-bit ops:
+gemma_mixed48_hr = lambda: {
+    'tf_lite_embedder': dynamic_wi4c_hr_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_per_layer_embedder': dynamic_wi4c_hr_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_prefill_decode': (
+        # Default is 4-bit channelwise quantization with Hadamard rotations.
+        dynamic_wi4c_hr_afp32(
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+        # Per-layer embeddings need 8 bits.
+        + dynamic_wi8c_afp32(
+            regex='per_layer',
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+    ),
+}
+
+# Gemma-4 mixed 4-bit blockwise quantization, using block sizes of 32 and 64.
+gemma_mixed48_b32 = lambda: {
+    'tf_lite_embedder': dynamic_wi4b32_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_per_layer_embedder': dynamic_wi4b32_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_prefill_decode': (
+        # Default is 4-bit channelwise quantization with Hadamard rotations.
+        dynamic_wi4b32_afp32(
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+        # Per-layer embeddings need 8 bits.
+        + dynamic_wi8c_afp32(
+            regex='per_layer',
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+    ),
+}
+gemma_mixed48_b64 = lambda: {
+    'tf_lite_embedder': dynamic_wi4b64_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_per_layer_embedder': dynamic_wi4b64_afp32(
+        operation_name=TFLOperationName.EMBEDDING_LOOKUP,
+    ),
+    'tf_lite_prefill_decode': (
+        # Default is 4-bit channelwise quantization with Hadamard rotations.
+        dynamic_wi4b64_afp32(
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+        # Per-layer embeddings need 8 bits.
+        + dynamic_wi8c_afp32(
+            regex='per_layer',
+            operation_name=TFLOperationName.FULLY_CONNECTED,
+        )
+    ),
+}

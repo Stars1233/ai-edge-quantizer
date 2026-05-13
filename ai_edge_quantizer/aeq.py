@@ -166,6 +166,8 @@ def quantize_litertlm(
       os.path.getsize(litertlm_path), output_file_size
   )
 
+  print(f"Wrote quantized model to {output_file_path}.")
+
   return 0
 
 
@@ -208,6 +210,8 @@ def quantize_tflite(
     return 1
 
   _quantize_model(model_file, recipe_file, serialize_to_path=output_file_path)
+
+  print(f"Wrote quantized model to {output_file_path}.")
 
   return 0
 

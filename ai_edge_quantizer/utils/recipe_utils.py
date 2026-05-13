@@ -79,7 +79,11 @@ def _get_named_recipe(
   # Populate the named recipes if this has not been done yet.
   if _NAMED_RECIPES is None:
     # Initialize the named recipes with the functions in the `recipe` module.
-    _NAMED_RECIPES = dict(inspect.getmembers(recipes, inspect.isfunction))
+    _NAMED_RECIPES = {
+        k: v
+        for k, v in inspect.getmembers(recipes, inspect.isfunction)
+        if not k.startswith('_')
+    }
 
     # Look for additional named recipes in the `recipes/` directory.
     for recipe_path in _RECIPE_REPO_PATH.iterdir():
