@@ -257,7 +257,7 @@ dynamic_wi4c_hr_afp32 = lambda **kwargs: dynamic_wi4c_afp32(
 # LiteRT-LM Recipes for specific model families, build from the above recipes.
 
 # Gemma-4 mixed 4/8-bit channelwise quantization:
-gemma_mixed48 = lambda: {
+gemma4_mixed48 = lambda: {
     'tf_lite_embedder': dynamic_wi4c_afp32(
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
@@ -265,7 +265,6 @@ gemma_mixed48 = lambda: {
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
     'tf_lite_prefill_decode': (
-        # Default is 4-bit channelwise quantization.
         dynamic_wi4c_afp32(
             operation_name=TFLOperationName.FULLY_CONNECTED,
         )
@@ -279,7 +278,7 @@ gemma_mixed48 = lambda: {
 
 # Gemma-4 mixed 4/8-bit channelwise quantization with Hadamard rotations for the
 # 4-bit ops:
-gemma_mixed48_hr = lambda: {
+gemma4_mixed48_hr = lambda: {
     'tf_lite_embedder': dynamic_wi4c_hr_afp32(
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
@@ -287,7 +286,6 @@ gemma_mixed48_hr = lambda: {
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
     'tf_lite_prefill_decode': (
-        # Default is 4-bit channelwise quantization with Hadamard rotations.
         dynamic_wi4c_hr_afp32(
             operation_name=TFLOperationName.FULLY_CONNECTED,
         )
@@ -300,7 +298,7 @@ gemma_mixed48_hr = lambda: {
 }
 
 # Gemma-4 mixed 4-bit blockwise quantization, using block sizes of 32 and 64.
-gemma_mixed48_b32 = lambda: {
+gemma4_mixed48_b32 = lambda: {
     'tf_lite_embedder': dynamic_wi4b32_afp32(
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
@@ -308,7 +306,6 @@ gemma_mixed48_b32 = lambda: {
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
     'tf_lite_prefill_decode': (
-        # Default is 4-bit channelwise quantization with Hadamard rotations.
         dynamic_wi4b32_afp32(
             operation_name=TFLOperationName.FULLY_CONNECTED,
         )
@@ -319,7 +316,7 @@ gemma_mixed48_b32 = lambda: {
         )
     ),
 }
-gemma_mixed48_b64 = lambda: {
+gemma4_mixed48_b64 = lambda: {
     'tf_lite_embedder': dynamic_wi4b64_afp32(
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
@@ -327,7 +324,6 @@ gemma_mixed48_b64 = lambda: {
         operation_name=TFLOperationName.EMBEDDING_LOOKUP,
     ),
     'tf_lite_prefill_decode': (
-        # Default is 4-bit channelwise quantization with Hadamard rotations.
         dynamic_wi4b64_afp32(
             operation_name=TFLOperationName.FULLY_CONNECTED,
         )
