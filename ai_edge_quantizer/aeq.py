@@ -19,6 +19,7 @@ import argparse
 from collections.abc import Sequence
 import logging
 import pathlib
+import tempfile
 import sys
 
 import os
@@ -31,7 +32,7 @@ from ai_edge_quantizer.utils import recipe_utils
 
 
 def _verify_output_path(
-    output_path: str, overwrite_outputs: bool = False
+    output_path: qtyping.Path, overwrite_outputs: bool = False
 ) -> bool:
   """Checks whether the output file exists and whether it's OK to overwrite it."""
   if os.path.exists(output_path) and not overwrite_outputs:
@@ -98,6 +99,11 @@ def quantize_litertlm(
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
 
+  # Create temporary files for the `mmap`ed converted TFLite models and clean
+  # them up when we're done.
+  temp_dir = pathlib.Path(tempfile.gettempdir())
+  temp_files: list[pathlib.Path] = []
+
   # Track progress.
   progress_report = progress_utils.ProgressReport(litertlm_path.name)
   progress_report.capture_progess_start()
@@ -135,7 +141,7 @@ def quantize_litertlm(
         f"{litertlm_basename}_{section_id:03d}_{model_type}_"
         f"{recipe_basename}.tflite"
     )
-    output_file_path = str(output_dir / output_filename)
+    temp_files.append(output_file_path := temp_dir / output_filename)
     if not _verify_output_path(output_file_path, overwrite_outputs):
       logging.error("Aborting.")
       return 1
@@ -154,13 +160,17 @@ def quantize_litertlm(
 
   # Rebuild the LiteRT-LM file with the quantized models swapped in.
   output_filename = f"{litertlm_basename}_{recipe_basename}.litertlm"
-  output_file_path = str(output_dir / output_filename)
+  output_file_path = output_dir / output_filename
   if not _verify_output_path(output_file_path, overwrite_outputs):
     logging.error("Aborting.")
     return 1
   output_file_size = litertlm_file.serialize(
       output_file_path, quantized_sections
   )
+
+  # Clean up temporary files.
+  for path in temp_files:
+    path.unlink(missing_ok=True)
 
   progress_report.generate_progress_report(
       os.path.getsize(litertlm_path), output_file_size

@@ -37,7 +37,6 @@ QuantRecipeFileContents = (
 
 # Create a mapping of recipe names to parsed JSON files.
 _RECIPE_REPO_PATH = pathlib.Path(__file__).parent / '../recipes'
-# _NAMED_RECIPES: dict[str, QuantRecipeFileContents] | None = None
 _NAMED_RECIPES: dict[str, Callable[..., QuantRecipeFileContents]] | None = None
 
 
