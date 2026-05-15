@@ -80,7 +80,7 @@ class ProgressBar:
 
     if enable is None:
       # Progress bar will be skipped for smaller models.
-      disable = total_steps < 1000
+      disable = total_steps < 100
     else:
       disable = not enable
     self._progress_bar = tqdm.tqdm(
