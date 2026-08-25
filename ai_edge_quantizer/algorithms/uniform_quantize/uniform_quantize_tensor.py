@@ -147,8 +147,8 @@ def fix_quantization_params_rank(
         for dim in range(tensor_data.ndim)
         if dim != quantization_params.quantized_dimension
     ]
-    scales = np.expand_dims(scales, axis=dims)
-    zero_points = np.expand_dims(zero_points, axis=dims)
+    scales = np.expand_dims(scales, axis=dims)  # pyrefly: ignore[no-matching-overload]
+    zero_points = np.expand_dims(zero_points, axis=dims)  # pyrefly: ignore[no-matching-overload]
 
   return qtyping.UniformQuantParams(
       scale=scales,
