@@ -270,32 +270,84 @@ Static range quantization (e.g., `static_wi8_ai8`, `static_wi8_ai16`) quantizes
 both weights and activations into integers, requiring a calibration phase with
 representative sample data to calculate quantization statistics values (QSVs).
 
-Calibration data is structured as a dictionary mapping signature keys (e.g.,
-`'serving_default'`) to lists of input sample dictionaries:
+AI Edge Quantizer offers two calibration modes and two calibration APIs:
+
+#### Calibration Modes
+
+Both calibration modes use XNNPACK acceleration for inference during
+calibration.
+
+* **`CALIBRATION_PRESERVE_ALL_TENSORS` (Default)**: Preserves all intermediate
+  tensors in memory, allowing Python-level tensor inspection and collecting
+  arbitrary statistics across all layers. Recommended when using algorithms that
+  require custom activation statistics (such as GPTQ) or when inspecting
+  intermediate activations.
+* **`CALIBRATION_PROFILER_BASED` (Recommended, except for GPTQ)**: Uses TFLite's
+  internal C++ profiler-based calibration. It executes directly in C++ with
+  lower memory overhead and is significantly faster. Currently, only min/max
+  collection is supported by this mode, so it can be utilized for all
+  quantization algorithms except GPTQ.
+
+#### Calibration API: `Quantizer.calibrate()`
+
+A calibration API managed directly by the `Quantizer` class. Requires to
+organize calibration samples into a dictionary mapping signature keys (e.g.,
+`'serving_default'`) to lists of input dictionaries. The `Quantizer.calibrate()`
+runs the model across the dataset to compute statistics in a single call:
 
 ```python
-from ai_edge_quantizer import quantizer, recipe
+from ai_edge_quantizer import calibrator, quantizer
 import numpy as np
 
 qt = quantizer.Quantizer("path/to/model.tflite")
-qt.load_quantization_recipe(recipe.static_wi8_ai8())
+qt.load_quantization_recipe("static_wi8_ai8")
 
-if qt.need_calibration:
-  # Provide representative calibration data matching the model signature inputs.
-  calibration_data = {
-      "serving_default": [
-          {
-              "input_tensor_name": np.random.uniform(
-                  -1.0, 1.0, size=(1, 28, 28, 1)
-              ).astype(np.float32)
-          }
-          for _ in range(256)
-      ]
-  }
-  calibration_result = qt.calibrate(calibration_data)
-  qt.quantize(calibration_result=calibration_result).export_model(
-      "/path/to/output/quantized_model.tflite"
-  )
+# 1. Prepare representative calibration dataset.
+calibration_data = {
+    "serving_default": [
+        {
+            "input_tensor_name": np.random.uniform(
+                -1.0, 1.0, size=(1, 28, 28, 1)
+            ).astype(np.float32)
+        }
+        for _ in range(256)
+    ]
+}
+# 2. Run calibration with the desired mode.
+calibration_result = qt.calibrate(
+    calibration_data,
+    mode=calibrator.CalibrationMode.CALIBRATION_PROFILER_BASED,
+)
+```
+
+#### Calibration API: `CalibrationInterpreter`
+
+A calibration API designed as a drop-in replacement for the standard TFLite
+`Interpreter`. Its primary advantage is that an existing model inference or
+evaluation pipeline can be used directly for calibration.
+
+As the existing evaluation loop runs inference via signature runners
+(`get_signature_runner()`), the `CalibrationInterpreter` automatically tracks
+and accumulates activation statistics. Once evaluation finishes, extract the
+accumulated statistics and pass them to the `Quantizer`:
+
+```python
+from ai_edge_quantizer import calibrator, quantizer
+import numpy as np
+
+# 1. Initialize CalibrationInterpreter (drop-in replacement for tflite::Interpreter).
+interpreter = calibrator.CalibrationInterpreter(
+    "path/to/model.tflite",
+    mode=calibrator.CalibrationMode.CALIBRATION_PROFILER_BASED,
+)
+runner = interpreter.get_signature_runner("serving_default")
+
+# 2. Reuse the existing inference/evaluation loop.
+for samples in dataset:
+  runner(input_1=sample)  # input_1 is the input tensor name for this model.
+
+# 3. Extract accumulated calibration statistics.
+calibration_result = interpreter.get_calibration_results()
 ```
 
 ### Step 4: Quantize & Export the Model
@@ -303,7 +355,12 @@ if qt.need_calibration:
 Execute the quantization engine and export the resulting model:
 
 ```python
-qt.quantize().export_model("/path/to/output/quantized_model.tflite")
+if qt.need_calibration:
+  # For recipes that require calibration (e.g., static quantization):
+  quantized_model = qt.quantize(calibration_result=calibration_result)
+else:
+  quantized_model = qt.quantize()
+quantized_model.export_model("/path/to/output/quantized_model.tflite")
 ```
 
 ### Step 5: Validate Numerical Accuracy
